@@ -1,0 +1,115 @@
+- hosts: all
+  become: yes
+  vars:
+    pubkey_user: ubuntu
+  pre_tasks:
+    - name: "必須のパッケージをインストール"
+      apt: pkg={{ item }} update_cache=yes
+      with_items:
+        - curl
+        - python-software-properties
+        - language-pack-ja
+  tasks:
+    ##################################################################
+    # timezone
+    ##################################################################
+    - name: set timezone to Asia/Tokyo
+      timezone: name=Asia/Tokyo
+
+    ##################################################################
+    # パッケージインストール
+    ##################################################################
+    - name: "パッケージをインストール"
+      apt: pkg={{ item }}
+      with_items:
+        - fonts-ipafont-gothic
+        - gcc
+        - git
+        - htop
+        - libfontconfig1
+        - libpcre3-dev
+        - libxrender1
+        - libreadline-dev
+        - libmysqlclient-dev
+        - make
+        - mysql-server
+        - nkf
+        - silversearcher-ag
+        - vim-nox
+        - nodejs
+        - npm
+        - awscli
+    - name: "不要なパッケージを削除"
+      shell: apt-get autoremove -y
+
+    ##################################################################
+    # NodeJS
+    ##################################################################
+    - name: "nをインストール"
+      npm: name=n global=yes
+    - name: "NodeJSの6.10.1をインストール"
+      shell: n 6.10.1
+
+    ##################################################################
+    # npm
+    ##################################################################
+    - name: "npmをアップデート"
+      npm: name=npm global=yes state=latest
+
+    ##################################################################
+    # Docker
+    ##################################################################
+    - name: "Dockerのリポジトリーの鍵を追加"
+      apt_key: url='https://apt.dockerproject.org/gpg'
+    - name: "Dockerのリポジトリーを追加"
+      apt_repository: repo='deb https://apt.dockerproject.org/repo/ ubuntu-xenial main'
+    - name: "Dockerのインストール"
+      apt: name=docker-engine
+
+    ##################################################################
+    # docker-SQS-local
+    ##################################################################
+    - name: "vsouza/docker-SQS-localをgit clone"
+      git: repo=https://github.com/vsouza/docker-SQS-local.git dest=/home/ubuntu/docker-SQS-local version=master accept_hostkey=yes
+    - name: "dockerを起動"
+      shell: cd /home/ubuntu/docker-SQS-local | docker run -d -p 9324:9324 vsouza/sqs-local
+    - pause:
+        seconds: 10
+    - name: "Queueを作成"
+      shell: curl -d "Action=CreateQueue&QueueName=testQueue" http://localhost:9324
+    - pause:
+        seconds: 10
+
+    ##################################################################
+    # Yarn
+    ##################################################################
+    - name: "Yarnのリポジトリーの鍵を追加"
+      apt_key: url='https://dl.yarnpkg.com/debian/pubkey.gpg'
+    - name: "Yarnのリポジトリーを追加"
+      apt_repository: repo='deb https://dl.yarnpkg.com/debian/ stable main'
+    - name: "Yarnのインストール"
+      apt: name=yarn
+
+    ####################################################################
+    # MySQL
+    ####################################################################
+    - name: "データベース設定のファイルをコピー"
+      copy: src=../mysql/57.cnf dest=/etc/mysql/conf.d/57.cnf
+    - name: "データベースを作成する"
+      shell: mysql -uroot -e "CREATE DATABASE your_database DEFAULT CHARSET utf8;"
+    - name: "ユーザを作成する"
+      shell: mysql -uroot -e "CREATE USER your_user IDENTIFIED BY 'your_pass';"
+    - name: "ユーザの権限を作成する"
+      shell: mysql -uroot -e "GRANT ALL PRIVILEGES ON your_database.* TO your_user@'localhost' IDENTIFIED BY 'your_pass';"
+
+    ##################################################################
+    # 後処理
+    ##################################################################
+    - name: "サービスを再起動して有効にする"
+      service: name={{ item }} state=restarted enabled=yes
+      with_items:
+        - mysql
+    - name: ".awsを作成"
+      file: path=/home/ubuntu/.aws state=directory owner=ubuntu group=ubuntu mode=0755
+    - name: "credentialsを設置"
+      copy: src=../aws/credentials dest=/home/ubuntu/.aws/credentials owner=ubuntu group=ubuntu

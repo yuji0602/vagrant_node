@@ -1,0 +1,12 @@
+[mysqld]
+sql_mode = NO_ENGINE_SUBSTITUTION
+secure_file_priv = ""
+binlog_format = STATEMENT
+innodb_buffer_pool_dump_at_shutdown = 0
+innodb_buffer_pool_load_at_startup = 0
+innodb_buffer_pool_dump_pct = 100
+loose-default_password_lifetime = 0
+loose-log_error_verbosity = 3
+loose-log_timestamps = SYSTEM
+loose-internal_tmp_disk_storage_engine = MyISAM
+loose-show_compatibility_56 = ON
